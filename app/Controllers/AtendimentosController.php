@@ -2,7 +2,7 @@
 // Controller da entidade de Atendimentos.
 class AtendimentosController
 {
-    private $pdo;
+    private PDO $pdo;
 
     public function __construct()
     {
@@ -10,16 +10,15 @@ class AtendimentosController
         $this->pdo = $pdo;
     }
 
-    // Listar com JOIN, conforme exigido na atividade.
     public function listar(): void
     {
         header('Content-Type: application/json; charset=utf-8');
 
-        // O JOIN traz os nomes do usuário, da pessoa e a descrição do tipo, em vez de apenas os IDs.
         $sql = 'SELECT 
-                    a.id, 
-                    a.data_atendimento, 
+                    a.id,
+                    a.data_atendimento,
                     a.status,
+                    a.descricao,
                     u.nome AS usuario_nome,
                     p.nome AS pessoa_nome,
                     t.descricao AS tipo_atendimento
@@ -35,7 +34,6 @@ class AtendimentosController
         echo json_encode($atendimentos, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
-    // Correspondente ao "visualizar" solicitado pelo professor.
     public function visualizar(): void
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -49,9 +47,9 @@ class AtendimentosController
         }
 
         $sql = 'SELECT 
-                    a.id, 
-                    a.data_atendimento, 
-                    a.observacoes,
+                    a.id,
+                    a.data_atendimento,
+                    a.descricao,
                     a.status,
                     u.nome AS usuario_nome,
                     p.nome AS pessoa_nome,
@@ -84,24 +82,30 @@ class AtendimentosController
         $usuario_id = filter_input(INPUT_POST, 'usuario_id', FILTER_VALIDATE_INT);
         $pessoa_id = filter_input(INPUT_POST, 'pessoa_id', FILTER_VALIDATE_INT);
         $tipo_atendimento_id = filter_input(INPUT_POST, 'tipo_atendimento_id', FILTER_VALIDATE_INT);
-        $observacoes = trim($_POST['observacoes'] ?? '');
-        $status = trim($_POST['status'] ?? 'aberto'); // ex: aberto, em_andamento, concluido
+        $descricao = trim($_POST['descricao'] ?? '');
+        $status = trim($_POST['status'] ?? 'em_andamento');
 
-        if (!$usuario_id || !$pessoa_id || !$tipo_atendimento_id) {
+        if (!$usuario_id || !$pessoa_id || !$tipo_atendimento_id || $descricao === '') {
             http_response_code(400);
-            echo json_encode(['erro' => 'IDs de usuário, pessoa e tipo de atendimento são obrigatórios.']);
+            echo json_encode(['erro' => 'Usuário, pessoa, tipo de atendimento e descrição são obrigatórios.']);
+            return;
+        }
+
+        if (!in_array($status, ['em_andamento', 'concluido', 'cancelado'], true)) {
+            http_response_code(400);
+            echo json_encode(['erro' => 'Status inválido.']);
             return;
         }
 
         try {
-            $sql = 'INSERT INTO atendimentos (usuario_id, pessoa_id, tipo_atendimento_id, observacoes, status, data_atendimento) 
-                    VALUES (:usuario_id, :pessoa_id, :tipo_atendimento_id, :observacoes, :status, NOW())';
-            
+            $sql = 'INSERT INTO atendimentos (usuario_id, pessoa_id, tipo_atendimento_id, descricao, status, data_atendimento)
+                    VALUES (:usuario_id, :pessoa_id, :tipo_atendimento_id, :descricao, :status, NOW())';
+
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindValue(':usuario_id', $usuario_id, PDO::PARAM_INT);
             $stmt->bindValue(':pessoa_id', $pessoa_id, PDO::PARAM_INT);
             $stmt->bindValue(':tipo_atendimento_id', $tipo_atendimento_id, PDO::PARAM_INT);
-            $stmt->bindValue(':observacoes', $observacoes);
+            $stmt->bindValue(':descricao', $descricao);
             $stmt->bindValue(':status', $status);
             $stmt->execute();
 
@@ -116,7 +120,6 @@ class AtendimentosController
         }
     }
 
-    // Correspondente ao "atualizar status" solicitado pelo professor.
     public function atualizarStatus(): void
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -127,6 +130,12 @@ class AtendimentosController
         if (!$id || $status === '') {
             http_response_code(400);
             echo json_encode(['erro' => 'ID e o novo status são obrigatórios.']);
+            return;
+        }
+
+        if (!in_array($status, ['em_andamento', 'concluido', 'cancelado'], true)) {
+            http_response_code(400);
+            echo json_encode(['erro' => 'Status inválido.']);
             return;
         }
 

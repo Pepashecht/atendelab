@@ -1,33 +1,26 @@
 <?php
 // Controller da entidade de pessoas.
-// Em uma arquitetura MVC, ele recebe a requisição, valida dados e acessa o banco.
 class PessoasController
 {
-    // Conexão PDO reutilizada em todos os métodos.
-    private $pdo;
+    private PDO $pdo;
 
     public function __construct()
     {
-        // Importa o arquivo que inicializa o objeto $pdo.
         require __DIR__ . '/../../config/database.php';
         $this->pdo = $pdo;
     }
 
     public function listar(): void
     {
-        // Define saída em JSON para APIs/consumo por front-end.
         header('Content-Type: application/json; charset=utf-8');
 
-        // Consulta todas as pessoas com ordenação decrescente por ID.
-        // ATENÇÃO: Ajuste os nomes das colunas conforme o seu banco de dados.
-        $sql = 'SELECT id, nome, cpf, email, telefone 
-                FROM pessoas 
+        $sql = 'SELECT id, nome, cpf, telefone, endereco, end_num, bairro, cidade, criado_em
+                FROM pessoas
                 ORDER BY id DESC';
 
         $stmt = $this->pdo->query($sql);
         $pessoas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // JSON_PRETTY_PRINT melhora leitura em desenvolvimento.
         echo json_encode($pessoas, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
@@ -35,7 +28,6 @@ class PessoasController
     {
         header('Content-Type: application/json; charset=utf-8');
 
-        // Lê e valida o ID recebido por GET.
         $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
         if (!$id) {
@@ -44,9 +36,8 @@ class PessoasController
             return;
         }
 
-        // Consulta parametrizada evita SQL Injection.
-        $sql = 'SELECT id, nome, cpf, email, telefone 
-                FROM pessoas 
+        $sql = 'SELECT id, nome, cpf, telefone, endereco, end_num, bairro, cidade, criado_em
+                FROM pessoas
                 WHERE id = :id';
 
         $stmt = $this->pdo->prepare($sql);
@@ -68,34 +59,38 @@ class PessoasController
     {
         header('Content-Type: application/json; charset=utf-8');
 
-        // Coleta dados do formulário (POST).
         $nome = trim($_POST['nome'] ?? '');
         $cpf = trim($_POST['cpf'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $telefone = trim($_POST['telefone'] ?? '');
+        $telefone = preg_replace('/\D/', '', trim($_POST['telefone'] ?? ''));
+        $endereco = trim($_POST['endereco'] ?? '');
+        $end_num = trim($_POST['end_num'] ?? '');
+        $bairro = trim($_POST['bairro'] ?? '');
+        $cidade = trim($_POST['cidade'] ?? '');
 
-        // Regras mínimas de validação de entrada.
-        if ($nome === '' || $cpf === '' || $email === '') {
+        if ($nome === '' || $cpf === '' || $telefone === '') {
             http_response_code(400);
-            echo json_encode(['erro' => 'Nome, CPF e e-mail são obrigatórios.']);
+            echo json_encode(['erro' => 'Nome, CPF e telefone são obrigatórios.']);
             return;
         }
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if (strlen($telefone) !== 11) {
             http_response_code(400);
-            echo json_encode(['erro' => 'E-mail inválido.']);
+            echo json_encode(['erro' => 'Telefone inválido. Informe 11 dígitos.']);
             return;
         }
 
         try {
-            $sql = 'INSERT INTO pessoas (nome, cpf, email, telefone) 
-                    VALUES (:nome, :cpf, :email, :telefone)';
+            $sql = 'INSERT INTO pessoas (nome, cpf, telefone, endereco, end_num, bairro, cidade)
+                    VALUES (:nome, :cpf, :telefone, :endereco, :end_num, :bairro, :cidade)';
 
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindValue(':nome', $nome);
             $stmt->bindValue(':cpf', $cpf);
-            $stmt->bindValue(':email', $email);
             $stmt->bindValue(':telefone', $telefone);
+            $stmt->bindValue(':endereco', $endereco);
+            $stmt->bindValue(':end_num', $end_num);
+            $stmt->bindValue(':bairro', $bairro);
+            $stmt->bindValue(':cidade', $cidade);
             $stmt->execute();
 
             http_response_code(201);
@@ -104,7 +99,6 @@ class PessoasController
                 'id' => $this->pdo->lastInsertId()
             ], JSON_UNESCAPED_UNICODE);
         } catch (PDOException $e) {
-            // Em produção, registre $e em log vez de expor detalhes.
             http_response_code(500);
             echo json_encode(['erro' => 'Erro ao cadastrar pessoa.']);
         }
@@ -114,38 +108,46 @@ class PessoasController
     {
         header('Content-Type: application/json; charset=utf-8');
 
-        // ID vem no POST para operação de update.
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
         $nome = trim($_POST['nome'] ?? '');
         $cpf = trim($_POST['cpf'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $telefone = trim($_POST['telefone'] ?? '');
+        $telefone = preg_replace('/\D/', '', trim($_POST['telefone'] ?? ''));
+        $endereco = trim($_POST['endereco'] ?? '');
+        $end_num = trim($_POST['end_num'] ?? '');
+        $bairro = trim($_POST['bairro'] ?? '');
+        $cidade = trim($_POST['cidade'] ?? '');
 
-        if (!$id || $nome === '' || $cpf === '' || $email === '') {
+        if (!$id || $nome === '' || $cpf === '' || $telefone === '') {
             http_response_code(400);
-            echo json_encode(['erro' => 'ID, nome, CPF e e-mail são obrigatórios.']);
+            echo json_encode(['erro' => 'ID, nome, CPF e telefone são obrigatórios.']);
             return;
         }
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if (strlen($telefone) !== 11) {
             http_response_code(400);
-            echo json_encode(['erro' => 'E-mail inválido.']);
+            echo json_encode(['erro' => 'Telefone inválido. Informe 11 dígitos.']);
             return;
         }
 
         try {
-            $sql = 'UPDATE pessoas 
-                    SET nome = :nome, 
-                        cpf = :cpf, 
-                        email = :email, 
-                        telefone = :telefone 
+            $sql = 'UPDATE pessoas
+                    SET nome = :nome,
+                        cpf = :cpf,
+                        telefone = :telefone,
+                        endereco = :endereco,
+                        end_num = :end_num,
+                        bairro = :bairro,
+                        cidade = :cidade
                     WHERE id = :id';
 
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindValue(':nome', $nome);
             $stmt->bindValue(':cpf', $cpf);
-            $stmt->bindValue(':email', $email);
             $stmt->bindValue(':telefone', $telefone);
+            $stmt->bindValue(':endereco', $endereco);
+            $stmt->bindValue(':end_num', $end_num);
+            $stmt->bindValue(':bairro', $bairro);
+            $stmt->bindValue(':cidade', $cidade);
             $stmt->bindValue(':id', $id, PDO::PARAM_INT);
             $stmt->execute();
 
@@ -160,7 +162,6 @@ class PessoasController
     {
         header('Content-Type: application/json; charset=utf-8');
 
-        // Exclusão por ID recebido no corpo da requisição.
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 
         if (!$id) {
