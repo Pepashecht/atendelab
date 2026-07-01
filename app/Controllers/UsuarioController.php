@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../Middleware/auth.php';
+
 // Controller da entidade de usuários.
 class UsuarioController
 {
@@ -12,6 +14,12 @@ class UsuarioController
 
     public function listar(): void
     {
+        if (($_GET['view'] ?? '') === 'html') {
+            exigirAutenticacao();
+            require __DIR__ . '/../Views/usuarios/index.php';
+            return;
+        }
+
         header('Content-Type: application/json; charset=utf-8');
 
         $sql = 'SELECT id, nome, email, perfil, status, criado_em

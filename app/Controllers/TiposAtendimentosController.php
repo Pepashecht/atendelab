@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../Middleware/auth.php';
+
 // Controller da entidade de Tipos de Atendimentos.
 class TiposAtendimentosController
 {
@@ -12,6 +14,12 @@ class TiposAtendimentosController
 
     public function listar(): void
     {
+        if (($_GET['view'] ?? '') === 'html') {
+            exigirAutenticacao();
+            require __DIR__ . '/../Views/tipos_atendimentos/index.php';
+            return;
+        }
+
         header('Content-Type: application/json; charset=utf-8');
 
         $sql = 'SELECT id, nome, descricao, status FROM tipos_atendimentos ORDER BY id DESC';

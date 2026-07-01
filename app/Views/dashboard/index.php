@@ -23,10 +23,10 @@
 
         <p>Bem-vindo ao sistema AtendeLab.</p>
         <ul>
-            <li><a href="?controller=usuarios&action=listar">Listar usuários</a></li>
-            <li><a href="?controller=pessoas&action=listar">Listar pessoas</a></li>
-            <li><a href="?controller=atendimentos&action=listar">Listar atendimentos</a></li>
-            <li><a href="?controller=tipos-atendimentos&action=listar">Listar tipos de atendimento</a></li>
+            <li><a href="?controller=usuarios&action=listar&view=html">Gerenciar usuários</a></li>
+            <li><a href="?controller=pessoas&action=listar&view=html">Gerenciar pessoas</a></li>
+            <li><a href="?controller=atendimentos&action=listar&view=html">Gerenciar atendimentos</a></li>
+            <li><a href="?controller=tipos-atendimentos&action=listar&view=html">Gerenciar tipos de atendimento</a></li>
         </ul>
     </div>
 </body>
