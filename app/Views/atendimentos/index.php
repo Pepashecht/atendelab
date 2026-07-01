@@ -80,9 +80,29 @@ $usuarioLogado = usuarioAtual();
                     <td>${atendimento.pessoa_nome}</td>
                     <td>${atendimento.tipo_atendimento}</td>
                     <td>${atendimento.status}</td>
-                    <td>${atendimento.descricao}</td>`;
+                    <td>${atendimento.descricao}</td>
+                    <td>
+                        <select id="status-${atendimento.id}">
+                            <option value="em_andamento" ${atendimento.status === 'em_andamento' ? 'selected' : ''}>Em andamento</option>
+                            <option value="concluido" ${atendimento.status === 'concluido' ? 'selected' : ''}>Concluído</option>
+                            <option value="cancelado" ${atendimento.status === 'cancelado' ? 'selected' : ''}>Cancelado</option>
+                        </select>
+                        <button type="button" onclick="alterarStatus(${atendimento.id})">Atualizar</button>
+                    </td>`;
                 tbody.appendChild(tr);
             });
+        }
+
+        async function alterarStatus(id) {
+            const select = document.getElementById(`status-${id}`);
+            if (!select) return;
+            const response = await fetch('?controller=atendimentos&action=atualizar-status', {
+                method: 'POST',
+                body: new URLSearchParams({ id, status: select.value })
+            });
+            const data = await response.json();
+            mostrarMensagem('atendimento-msg', data.mensagem || data.erro, response.ok);
+            if (response.ok) carregarAtendimentos();
         }
     </script>
 </body>

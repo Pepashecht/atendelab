@@ -22,6 +22,22 @@
         </div>
 
         <p>Bem-vindo ao sistema AtendeLab.</p>
+
+        <div class="cards">
+            <div class="metric-card">
+                <h3>Pessoas</h3>
+                <p class="metric-value"><?= (int) ($resumo['pessoas'] ?? 0) ?></p>
+            </div>
+            <div class="metric-card">
+                <h3>Atendimentos</h3>
+                <p class="metric-value"><?= (int) ($resumo['atendimentos'] ?? 0) ?></p>
+            </div>
+            <div class="metric-card">
+                <h3>Tipos</h3>
+                <p class="metric-value"><?= (int) ($resumo['tipos'] ?? 0) ?></p>
+            </div>
+        </div>
+
         <ul>
             <li><a href="?controller=usuarios&action=listar&view=html">Gerenciar usuários</a></li>
             <li><a href="?controller=pessoas&action=listar&view=html">Gerenciar pessoas</a></li>

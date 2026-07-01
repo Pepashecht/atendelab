@@ -123,3 +123,23 @@ th, td {
 th {
     background: #f8fafc;
 }
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.metric-card {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.metric-value {
+    font-size: 28px;
+    font-weight: bold;
+    margin: 6px 0 0;
+}

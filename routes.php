@@ -23,6 +23,9 @@ switch ($controller) {
             case 'dashboard':
                 $authController->dashboard();
                 break;
+            case 'resumo':
+                $authController->resumo();
+                break;
             case 'logout':
                 $authController->logout();
                 break;
