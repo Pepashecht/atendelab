@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../Middleware/auth.php';
 
 // Controller da entidade de pessoas.
+// Este controller cuida apenas dos dados (JSON). A tela é aberta pelo
+// FrontendController (controller=frontend&action=pessoas).
 class PessoasController
 {
     private PDO $pdo;
@@ -14,15 +16,11 @@ class PessoasController
 
     public function listar(): void
     {
-        if (($_GET['view'] ?? '') === 'html') {
-            exigirAutenticacao();
-            require __DIR__ . '/../Views/pessoas/index.php';
-            return;
-        }
+        exigirAutenticacao();
 
         header('Content-Type: application/json; charset=utf-8');
 
-        $sql = 'SELECT id, nome, cpf, telefone, endereco, end_num, bairro, cidade, criado_em
+        $sql = 'SELECT id, nome, cpf, telefone, endereco, end_num, bairro, cidade, status, criado_em
                 FROM pessoas
                 ORDER BY id DESC';
 
@@ -34,6 +32,8 @@ class PessoasController
 
     public function buscarPorId(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
         $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -44,7 +44,7 @@ class PessoasController
             return;
         }
 
-        $sql = 'SELECT id, nome, cpf, telefone, endereco, end_num, bairro, cidade, criado_em
+        $sql = 'SELECT id, nome, cpf, telefone, endereco, end_num, bairro, cidade, status, criado_em
                 FROM pessoas
                 WHERE id = :id';
 
@@ -65,6 +65,8 @@ class PessoasController
 
     public function criar(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
         $nome = trim($_POST['nome'] ?? '');
@@ -74,6 +76,7 @@ class PessoasController
         $end_num = trim($_POST['end_num'] ?? '');
         $bairro = trim($_POST['bairro'] ?? '');
         $cidade = trim($_POST['cidade'] ?? '');
+        $status = trim($_POST['status'] ?? 'ativo');
 
         if ($nome === '' || $cpf === '' || $telefone === '') {
             http_response_code(400);
@@ -87,9 +90,15 @@ class PessoasController
             return;
         }
 
+        if (!in_array($status, ['ativo', 'inativo'], true)) {
+            http_response_code(400);
+            echo json_encode(['erro' => 'Status inválido.']);
+            return;
+        }
+
         try {
-            $sql = 'INSERT INTO pessoas (nome, cpf, telefone, endereco, end_num, bairro, cidade)
-                    VALUES (:nome, :cpf, :telefone, :endereco, :end_num, :bairro, :cidade)';
+            $sql = 'INSERT INTO pessoas (nome, cpf, telefone, endereco, end_num, bairro, cidade, status)
+                    VALUES (:nome, :cpf, :telefone, :endereco, :end_num, :bairro, :cidade, :status)';
 
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindValue(':nome', $nome);
@@ -99,6 +108,7 @@ class PessoasController
             $stmt->bindValue(':end_num', $end_num);
             $stmt->bindValue(':bairro', $bairro);
             $stmt->bindValue(':cidade', $cidade);
+            $stmt->bindValue(':status', $status);
             $stmt->execute();
 
             http_response_code(201);
@@ -108,12 +118,14 @@ class PessoasController
             ], JSON_UNESCAPED_UNICODE);
         } catch (PDOException $e) {
             http_response_code(500);
-            echo json_encode(['erro' => 'Erro ao cadastrar pessoa.']);
+            echo json_encode(['erro' => 'Erro ao cadastrar pessoa. Verifique se o CPF já está em uso.']);
         }
     }
 
     public function atualizar(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
@@ -124,6 +136,7 @@ class PessoasController
         $end_num = trim($_POST['end_num'] ?? '');
         $bairro = trim($_POST['bairro'] ?? '');
         $cidade = trim($_POST['cidade'] ?? '');
+        $status = trim($_POST['status'] ?? 'ativo');
 
         if (!$id || $nome === '' || $cpf === '' || $telefone === '') {
             http_response_code(400);
@@ -137,6 +150,12 @@ class PessoasController
             return;
         }
 
+        if (!in_array($status, ['ativo', 'inativo'], true)) {
+            http_response_code(400);
+            echo json_encode(['erro' => 'Status inválido.']);
+            return;
+        }
+
         try {
             $sql = 'UPDATE pessoas
                     SET nome = :nome,
@@ -145,7 +164,8 @@ class PessoasController
                         endereco = :endereco,
                         end_num = :end_num,
                         bairro = :bairro,
-                        cidade = :cidade
+                        cidade = :cidade,
+                        status = :status
                     WHERE id = :id';
 
             $stmt = $this->pdo->prepare($sql);
@@ -156,6 +176,7 @@ class PessoasController
             $stmt->bindValue(':end_num', $end_num);
             $stmt->bindValue(':bairro', $bairro);
             $stmt->bindValue(':cidade', $cidade);
+            $stmt->bindValue(':status', $status);
             $stmt->bindValue(':id', $id, PDO::PARAM_INT);
             $stmt->execute();
 
@@ -166,8 +187,13 @@ class PessoasController
         }
     }
 
-    public function excluir(): void
+    // Regra de negócio (Aula 006): pessoas podem estar vinculadas a
+    // atendimentos, então o histórico precisa ser preservado. Por isso,
+    // o botão "Inativar" nunca apaga fisicamente o registro.
+    public function inativar(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
@@ -179,15 +205,15 @@ class PessoasController
         }
 
         try {
-            $sql = 'DELETE FROM pessoas WHERE id = :id';
+            $sql = "UPDATE pessoas SET status = 'inativo' WHERE id = :id";
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindValue(':id', $id, PDO::PARAM_INT);
             $stmt->execute();
 
-            echo json_encode(['mensagem' => 'Registro excluído com sucesso.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['mensagem' => 'Pessoa inativada com sucesso.'], JSON_UNESCAPED_UNICODE);
         } catch (PDOException $e) {
             http_response_code(500);
-            echo json_encode(['erro' => 'Erro ao excluir registro.']);
+            echo json_encode(['erro' => 'Erro ao inativar pessoa.']);
         }
     }
 }

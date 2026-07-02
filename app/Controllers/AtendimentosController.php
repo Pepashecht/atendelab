@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../Middleware/auth.php';
 
 // Controller da entidade de Atendimentos.
+// Este controller cuida apenas dos dados (JSON). A tela é aberta pelo
+// FrontendController (controller=frontend&action=atendimentos).
 class AtendimentosController
 {
     private PDO $pdo;
@@ -14,22 +16,21 @@ class AtendimentosController
 
     public function listar(): void
     {
-        if (($_GET['view'] ?? '') === 'html') {
-            exigirAutenticacao();
-            require __DIR__ . '/../Views/atendimentos/index.php';
-            return;
-        }
+        exigirAutenticacao();
 
         header('Content-Type: application/json; charset=utf-8');
 
-        $sql = 'SELECT 
+        $sql = 'SELECT
                     a.id,
                     a.data_atendimento,
                     a.status,
                     a.descricao,
+                    a.pessoa_id,
+                    a.tipo_atendimento_id,
+                    a.usuario_id,
                     u.nome AS usuario_nome,
                     p.nome AS pessoa_nome,
-                    t.descricao AS tipo_atendimento
+                    t.nome AS tipo_nome
                 FROM atendimentos a
                 JOIN usuarios u ON a.usuario_id = u.id
                 JOIN pessoas p ON a.pessoa_id = p.id
@@ -44,6 +45,8 @@ class AtendimentosController
 
     public function visualizar(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
         $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -54,14 +57,14 @@ class AtendimentosController
             return;
         }
 
-        $sql = 'SELECT 
+        $sql = 'SELECT
                     a.id,
                     a.data_atendimento,
                     a.descricao,
                     a.status,
                     u.nome AS usuario_nome,
                     p.nome AS pessoa_nome,
-                    t.descricao AS tipo_atendimento
+                    t.nome AS tipo_nome
                 FROM atendimentos a
                 JOIN usuarios u ON a.usuario_id = u.id
                 JOIN pessoas p ON a.pessoa_id = p.id
@@ -83,19 +86,40 @@ class AtendimentosController
         echo json_encode($atendimento, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
+    // O responsável pelo atendimento vem sempre da sessão do usuário
+    // logado, nunca de um campo livre do formulário (Aula 006, seção 14).
+    // Isso evita que a tela permita registrar um atendimento em nome de
+    // outra pessoa só porque alguém alterou o valor enviado no POST.
+    private function usuarioResponsavel(): ?int
+    {
+        if (isset($_SESSION['usuario']['id'])) {
+            return (int) $_SESSION['usuario']['id'];
+        }
+
+        return null;
+    }
+
     public function criar(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
-        $usuario_id = filter_input(INPUT_POST, 'usuario_id', FILTER_VALIDATE_INT);
+        $usuario_id = $this->usuarioResponsavel();
         $pessoa_id = filter_input(INPUT_POST, 'pessoa_id', FILTER_VALIDATE_INT);
         $tipo_atendimento_id = filter_input(INPUT_POST, 'tipo_atendimento_id', FILTER_VALIDATE_INT);
         $descricao = trim($_POST['descricao'] ?? '');
         $status = trim($_POST['status'] ?? 'em_andamento');
 
-        if (!$usuario_id || !$pessoa_id || !$tipo_atendimento_id || $descricao === '') {
+        if (!$usuario_id) {
+            http_response_code(401);
+            echo json_encode(['erro' => 'Usuário não autenticado.']);
+            return;
+        }
+
+        if (!$pessoa_id || !$tipo_atendimento_id || $descricao === '') {
             http_response_code(400);
-            echo json_encode(['erro' => 'Usuário, pessoa, tipo de atendimento e descrição são obrigatórios.']);
+            echo json_encode(['erro' => 'Pessoa, tipo de atendimento e descrição são obrigatórios.']);
             return;
         }
 
@@ -130,6 +154,8 @@ class AtendimentosController
 
     public function atualizarStatus(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);

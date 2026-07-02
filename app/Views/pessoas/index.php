@@ -1,120 +1,174 @@
 <?php
-$usuarioLogado = usuarioAtual();
+$tituloPagina = 'Pessoas atendidas';
+require __DIR__ . '/../layouts/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pessoas - AtendeLab</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-</head>
-<body>
-    <div class="container">
-        <div class="topo">
-            <h1>Pessoas atendidas</h1>
-            <div class="menu">
-                <span>Olá, <?= htmlspecialchars($usuarioLogado['nome'] ?? 'Usuário') ?>!</span>
-                <a href="?controller=auth&action=dashboard">Voltar</a>
-                <a href="?controller=auth&action=logout">Sair</a>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Nova pessoa</h2>
-            <form id="pessoa-form" class="grid-form">
-                <input type="hidden" name="id" id="pessoa-id">
-                <div><label>Nome</label><input name="nome" required></div>
-                <div><label>CPF</label><input name="cpf" required></div>
-                <div><label>Telefone</label><input name="telefone" required></div>
-                <div><label>Endereço</label><input name="endereco"></div>
-                <div><label>Número</label><input name="end_num"></div>
-                <div><label>Bairro</label><input name="bairro"></div>
-                <div><label>Cidade</label><input name="cidade"></div>
-                <div class="form-actions"><button type="submit">Salvar</button><button type="button" class="secondary" onclick="resetarPessoaForm()">Limpar</button></div>
-            </form>
-            <div id="pessoa-msg" class="message"></div>
-        </div>
-
-        <div class="card">
-            <h2>Lista de pessoas</h2>
-            <table>
-                <thead><tr><th>ID</th><th>Nome</th><th>CPF</th><th>Telefone</th><th>Cidade</th><th>Ações</th></tr></thead>
-                <tbody id="pessoas-tbody"></tbody>
-            </table>
-        </div>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Pessoas atendidas</h1>
+        <p class="text-secondary mb-0">Cadastro, edição e inativação sem excluir o histórico.</p>
     </div>
+    <button class="btn btn-success" type="button" onclick="novaPessoa()">Nova pessoa</button>
+</div>
 
-    <script src="../assets/js/script.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', carregarPessoas);
+<div id="alerta"></div>
 
-        document.getElementById('pessoa-form').addEventListener('submit', async function (event) {
-            event.preventDefault();
-            const form = new FormData(this);
-            const id = form.get('id');
-            const action = id ? 'atualizar' : 'criar';
-            const response = await fetch(`?controller=pessoas&action=${action}`, {
-                method: 'POST',
-                body: new URLSearchParams(form)
-            });
-            const data = await response.json();
-            mostrarMensagem('pessoa-msg', data.mensagem || data.erro, response.ok);
-            if (response.ok) {
-                resetarPessoaForm();
-                carregarPessoas();
-            }
-        });
+<div class="card border-0 shadow-sm mb-4 d-none" id="cardFormulario">
+    <div class="card-body">
+        <h2 class="h5" id="tituloFormulario">Nova pessoa</h2>
+        <form id="formPessoa">
+            <input type="hidden" name="id" id="pessoaId">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Nome *</label>
+                    <input class="form-control" name="nome" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">CPF *</label>
+                    <input class="form-control" name="cpf" maxlength="11" placeholder="Somente números" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Telefone *</label>
+                    <input class="form-control" name="telefone" maxlength="11" placeholder="Somente números (11 dígitos)" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Endereço</label>
+                    <input class="form-control" name="endereco">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Número</label>
+                    <input class="form-control" name="end_num">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Bairro</label>
+                    <input class="form-control" name="bairro">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Cidade</label>
+                    <input class="form-control" name="cidade">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" name="status">
+                        <option value="ativo">Ativo</option>
+                        <option value="inativo">Inativo</option>
+                    </select>
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-success" type="submit">Salvar</button>
+                <button class="btn btn-outline-secondary" type="button" onclick="fecharFormulario()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-        async function carregarPessoas() {
-            const response = await fetch('?controller=pessoas&action=listar');
-            const pessoas = await response.json();
-            const tbody = document.getElementById('pessoas-tbody');
-            tbody.innerHTML = '';
-            pessoas.forEach(pessoa => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${pessoa.id}</td>
-                    <td>${pessoa.nome}</td>
-                    <td>${pessoa.cpf}</td>
-                    <td>${pessoa.telefone}</td>
-                    <td>${pessoa.cidade}</td>
-                    <td>
-                        <button type="button" onclick="editarPessoa(${pessoa.id})">Editar</button>
-                        <button type="button" class="danger" onclick="excluirPessoa(${pessoa.id})">Excluir</button>
-                    </td>`;
-                tbody.appendChild(tr);
-            });
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nome</th>
+                    <th>CPF</th>
+                    <th>Telefone</th>
+                    <th>Cidade</th>
+                    <th>Status</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaPessoas">
+                <tr><td colspan="6" class="text-center py-4">Carregando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const formPessoa = document.getElementById('formPessoa');
+const cardFormulario = document.getElementById('cardFormulario');
+
+function abrirFormulario() {
+    cardFormulario.classList.remove('d-none');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function fecharFormulario() {
+    cardFormulario.classList.add('d-none');
+    formPessoa.reset();
+    document.getElementById('pessoaId').value = '';
+}
+
+function novaPessoa() {
+    fecharFormulario();
+    document.getElementById('tituloFormulario').textContent = 'Nova pessoa';
+    abrirFormulario();
+}
+
+async function carregarPessoas() {
+    try {
+        const dados = AtendeLabApi.toList(await AtendeLabApi.get('pessoas', 'listar'));
+        const tbody = document.getElementById('tabelaPessoas');
+
+        if (!dados.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">Nenhuma pessoa cadastrada.</td></tr>';
+            return;
         }
 
-        async function editarPessoa(id) {
-            const response = await fetch(`?controller=pessoas&action=buscar&id=${id}`);
-            const pessoa = await response.json();
-            document.getElementById('pessoa-id').value = pessoa.id;
-            document.querySelector('#pessoa-form input[name="nome"]').value = pessoa.nome;
-            document.querySelector('#pessoa-form input[name="cpf"]').value = pessoa.cpf;
-            document.querySelector('#pessoa-form input[name="telefone"]').value = pessoa.telefone;
-            document.querySelector('#pessoa-form input[name="endereco"]').value = pessoa.endereco || '';
-            document.querySelector('#pessoa-form input[name="end_num"]').value = pessoa.end_num || '';
-            document.querySelector('#pessoa-form input[name="bairro"]').value = pessoa.bairro || '';
-            document.querySelector('#pessoa-form input[name="cidade"]').value = pessoa.cidade || '';
-        }
+        tbody.innerHTML = dados.map(p => `
+            <tr>
+                <td>${AtendeLabApi.escape(p.nome)}</td>
+                <td>${AtendeLabApi.escape(p.cpf)}</td>
+                <td>${AtendeLabApi.escape(p.telefone)}</td>
+                <td>${AtendeLabApi.escape(p.cidade || '')}</td>
+                <td><span class="badge ${p.status === 'ativo' ? 'text-bg-success' : 'text-bg-secondary'}">${AtendeLabApi.escape(p.status)}</span></td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editarPessoa(${Number(p.id)})">Editar</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="inativarPessoa(${Number(p.id)})">Inativar</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        AtendeLabApi.showAlert('alerta', error.message, 'danger');
+    }
+}
 
-        async function excluirPessoa(id) {
-            if (!confirm('Deseja excluir esta pessoa?')) return;
-            const response = await fetch('?controller=pessoas&action=excluir', {
-                method: 'POST',
-                body: new URLSearchParams({ id })
-            });
-            const data = await response.json();
-            mostrarMensagem('pessoa-msg', data.mensagem || data.erro, response.ok);
-            if (response.ok) carregarPessoas();
+async function editarPessoa(id) {
+    try {
+        const p = AtendeLabApi.toObject(await AtendeLabApi.get('pessoas', 'buscarPorId', { id }));
+        novaPessoa();
+        document.getElementById('tituloFormulario').textContent = 'Editar pessoa';
+        for (const [key, value] of Object.entries(p)) {
+            const field = formPessoa.elements.namedItem(key);
+            if (field) field.value = value ?? '';
         }
+    } catch (error) {
+        AtendeLabApi.showAlert('alerta', error.message, 'danger');
+    }
+}
 
-        function resetarPessoaForm() {
-            document.getElementById('pessoa-form').reset();
-            document.getElementById('pessoa-id').value = '';
-        }
-    </script>
-</body>
-</html>
+formPessoa.addEventListener('submit', async event => {
+    event.preventDefault();
+    const id = document.getElementById('pessoaId').value;
+    try {
+        await AtendeLabApi.post('pessoas', id ? 'atualizar' : 'criar', new FormData(formPessoa));
+        AtendeLabApi.showAlert('alerta', id ? 'Pessoa atualizada com sucesso.' : 'Pessoa cadastrada com sucesso.');
+        fecharFormulario();
+        await carregarPessoas();
+    } catch (error) {
+        AtendeLabApi.showAlert('alerta', error.message, 'danger');
+    }
+});
+
+async function inativarPessoa(id) {
+    if (!confirm('Deseja inativar esta pessoa?')) return;
+    try {
+        await AtendeLabApi.post('pessoas', 'inativar', { id });
+        AtendeLabApi.showAlert('alerta', 'Pessoa inativada com sucesso.');
+        await carregarPessoas();
+    } catch (error) {
+        AtendeLabApi.showAlert('alerta', error.message, 'danger');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', carregarPessoas);
+</script>
+<?php require __DIR__ . '/../layouts/footer.php'; ?>

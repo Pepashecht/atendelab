@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../Middleware/auth.php';
 
 // Controller da entidade de Tipos de Atendimentos.
+// Este controller cuida apenas dos dados (JSON). A tela é aberta pelo
+// FrontendController (controller=frontend&action=tipos).
 class TiposAtendimentosController
 {
     private PDO $pdo;
@@ -14,11 +16,7 @@ class TiposAtendimentosController
 
     public function listar(): void
     {
-        if (($_GET['view'] ?? '') === 'html') {
-            exigirAutenticacao();
-            require __DIR__ . '/../Views/tipos_atendimentos/index.php';
-            return;
-        }
+        exigirAutenticacao();
 
         header('Content-Type: application/json; charset=utf-8');
 
@@ -31,6 +29,8 @@ class TiposAtendimentosController
 
     public function buscarPorId(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
         $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -59,6 +59,8 @@ class TiposAtendimentosController
 
     public function criar(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
         $nome = trim($_POST['nome'] ?? '');
@@ -92,12 +94,14 @@ class TiposAtendimentosController
             ], JSON_UNESCAPED_UNICODE);
         } catch (PDOException $e) {
             http_response_code(500);
-            echo json_encode(['erro' => 'Erro ao cadastrar tipo de atendimento.']);
+            echo json_encode(['erro' => 'Erro ao cadastrar tipo de atendimento. Verifique se o nome já existe.']);
         }
     }
 
     public function atualizar(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
@@ -135,8 +139,13 @@ class TiposAtendimentosController
         }
     }
 
-    public function excluir(): void
+    // A tabela tipos_atendimentos já possui status ('A' ativo / 'I' inativo),
+    // então inativar aqui é apenas trocar o status, sem apagar o registro
+    // (tipos podem estar vinculados a atendimentos existentes).
+    public function inativar(): void
     {
+        exigirAutenticacao();
+
         header('Content-Type: application/json; charset=utf-8');
 
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
@@ -148,15 +157,15 @@ class TiposAtendimentosController
         }
 
         try {
-            $sql = 'DELETE FROM tipos_atendimentos WHERE id = :id';
+            $sql = "UPDATE tipos_atendimentos SET status = 'I' WHERE id = :id";
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindValue(':id', $id, PDO::PARAM_INT);
             $stmt->execute();
 
-            echo json_encode(['mensagem' => 'Tipo de atendimento excluído com sucesso.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['mensagem' => 'Tipo de atendimento inativado com sucesso.'], JSON_UNESCAPED_UNICODE);
         } catch (PDOException $e) {
             http_response_code(500);
-            echo json_encode(['erro' => 'Erro ao excluir tipo de atendimento. Pode estar vinculado a um atendimento.']);
+            echo json_encode(['erro' => 'Erro ao inativar tipo de atendimento.']);
         }
     }
 }

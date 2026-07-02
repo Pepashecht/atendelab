@@ -1,0 +1,27 @@
+:root { --atendelab-green: #198754; }
+
+body {
+    font-family: Arial, sans-serif;
+    color: #1f2937;
+    min-height: 100vh;
+}
+
+/* Cartão de login */
+.login-card { width: min(100%, 430px); }
+
+.brand-mark {
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    border-radius: 16px;
+    background: var(--atendelab-green);
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+
+/* Pequenos ajustes visuais sobre os componentes do Bootstrap */
+.card { border-radius: 14px; }
+.table th { white-space: nowrap; }
+textarea { resize: vertical; }

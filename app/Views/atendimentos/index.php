@@ -1,109 +1,204 @@
 <?php
-$usuarioLogado = usuarioAtual();
+$tituloPagina = 'Atendimentos';
+require __DIR__ . '/../layouts/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atendimentos - AtendeLab</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-</head>
-<body>
-    <div class="container">
-        <div class="topo">
-            <h1>Atendimentos</h1>
-            <div class="menu">
-                <span>Olá, <?= htmlspecialchars($usuarioLogado['nome'] ?? 'Usuário') ?>!</span>
-                <a href="?controller=auth&action=dashboard">Voltar</a>
-                <a href="?controller=auth&action=logout">Sair</a>
-            </div>
-        </div>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Atendimentos</h1>
+        <p class="text-secondary mb-0">Registro e acompanhamento dos atendimentos acadêmicos.</p>
+    </div>
+    <button class="btn btn-success" type="button" onclick="novoAtendimento()">Novo atendimento</button>
+</div>
 
-        <div class="card">
-            <h2>Novo atendimento</h2>
-            <form id="atendimento-form" class="grid-form">
-                <div><label>Usuário</label><input type="number" name="usuario_id" required></div>
-                <div><label>Pessoa</label><input type="number" name="pessoa_id" required></div>
-                <div><label>Tipo</label><input type="number" name="tipo_atendimento_id" required></div>
-                <div><label>Status</label>
-                    <select name="status">
-                        <option value="em_andamento">Em andamento</option>
-                        <option value="concluido">Concluído</option>
-                        <option value="cancelado">Cancelado</option>
+<div id="alerta"></div>
+
+<div class="card border-0 shadow-sm mb-4 d-none" id="cardFormulario">
+    <div class="card-body">
+        <h2 class="h5">Novo atendimento</h2>
+        <form id="formAtendimento">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Pessoa *</label>
+                    <select class="form-select" name="pessoa_id" id="pessoaSelect" required>
+                        <option value="">Carregando...</option>
                     </select>
                 </div>
-                <div class="full-width"><label>Descrição</label><textarea name="descricao" required></textarea></div>
-                <div class="form-actions"><button type="submit">Salvar</button></div>
-            </form>
-            <div id="atendimento-msg" class="message"></div>
-        </div>
+                <div class="col-md-6">
+                    <label class="form-label">Tipo *</label>
+                    <select class="form-select" name="tipo_atendimento_id" id="tipoSelect" required>
+                        <option value="">Carregando...</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Descrição *</label>
+                    <textarea class="form-control" name="descricao" rows="3" required></textarea>
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-success" type="submit">Registrar</button>
+                <button class="btn btn-outline-secondary" type="button" onclick="fecharFormulario()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-        <div class="card">
-            <h2>Lista de atendimentos</h2>
-            <table>
-                <thead><tr><th>ID</th><th>Data</th><th>Usuário</th><th>Pessoa</th><th>Tipo</th><th>Status</th><th>Descrição</th></tr></thead>
-                <tbody id="atendimentos-tbody"></tbody>
-            </table>
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>Pessoa</th>
+                    <th>Tipo</th>
+                    <th>Responsável</th>
+                    <th>Data</th>
+                    <th>Status</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaAtendimentos">
+                <tr><td colspan="7" class="text-center py-4">Carregando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modalStatus" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5">Alterar status</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formStatus">
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="statusId">
+                    <div class="mb-0">
+                        <label class="form-label">Novo status</label>
+                        <select class="form-select" name="status" required>
+                            <option value="em_andamento">Em andamento</option>
+                            <option value="concluido">Concluído</option>
+                            <option value="cancelado">Cancelado</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-success" type="submit">Salvar</button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <script src="../assets/js/script.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', carregarAtendimentos);
+<script>
+const formAtendimento = document.getElementById('formAtendimento');
+const cardFormulario = document.getElementById('cardFormulario');
+const classesStatus = {
+    em_andamento: 'text-bg-warning',
+    concluido: 'text-bg-success',
+    cancelado: 'text-bg-secondary'
+};
 
-        document.getElementById('atendimento-form').addEventListener('submit', async function (event) {
-            event.preventDefault();
-            const response = await fetch('?controller=atendimentos&action=criar', {
-                method: 'POST',
-                body: new URLSearchParams(new FormData(this))
-            });
-            const data = await response.json();
-            mostrarMensagem('atendimento-msg', data.mensagem || data.erro, response.ok);
-            if (response.ok) {
-                this.reset();
-                carregarAtendimentos();
-            }
-        });
+const statusModal = () => bootstrap.Modal.getOrCreateInstance(document.getElementById('modalStatus'));
 
-        async function carregarAtendimentos() {
-            const response = await fetch('?controller=atendimentos&action=listar');
-            const atendimentos = await response.json();
-            const tbody = document.getElementById('atendimentos-tbody');
-            tbody.innerHTML = '';
-            atendimentos.forEach(atendimento => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${atendimento.id}</td>
-                    <td>${atendimento.data_atendimento}</td>
-                    <td>${atendimento.usuario_nome}</td>
-                    <td>${atendimento.pessoa_nome}</td>
-                    <td>${atendimento.tipo_atendimento}</td>
-                    <td>${atendimento.status}</td>
-                    <td>${atendimento.descricao}</td>
-                    <td>
-                        <select id="status-${atendimento.id}">
-                            <option value="em_andamento" ${atendimento.status === 'em_andamento' ? 'selected' : ''}>Em andamento</option>
-                            <option value="concluido" ${atendimento.status === 'concluido' ? 'selected' : ''}>Concluído</option>
-                            <option value="cancelado" ${atendimento.status === 'cancelado' ? 'selected' : ''}>Cancelado</option>
-                        </select>
-                        <button type="button" onclick="alterarStatus(${atendimento.id})">Atualizar</button>
-                    </td>`;
-                tbody.appendChild(tr);
-            });
+function novoAtendimento() {
+    cardFormulario.classList.remove('d-none');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function fecharFormulario() {
+    cardFormulario.classList.add('d-none');
+    formAtendimento.reset();
+}
+
+// A regra da Aula 006 diz que os selects de Pessoa e Tipo devem carregar
+// somente registros ativos. Aqui os controllers de dados não filtram
+// isso no SQL, então o filtro é feito no JavaScript com o status vindo
+// do banco (pessoas.status === 'ativo' / tipos_atendimentos.status === 'A').
+async function carregarCombos() {
+    const [pessoasResp, tiposResp] = await Promise.all([
+        AtendeLabApi.get('pessoas', 'listar'),
+        AtendeLabApi.get('tipos', 'listar')
+    ]);
+
+    const pessoas = AtendeLabApi.toList(pessoasResp).filter(p => p.status === 'ativo');
+    const tipos = AtendeLabApi.toList(tiposResp).filter(t => t.status === 'A');
+
+    document.getElementById('pessoaSelect').innerHTML =
+        '<option value="">Selecione</option>' +
+        pessoas.map(p => `<option value="${Number(p.id)}">${AtendeLabApi.escape(p.nome)}</option>`).join('');
+
+    document.getElementById('tipoSelect').innerHTML =
+        '<option value="">Selecione</option>' +
+        tipos.map(t => `<option value="${Number(t.id)}">${AtendeLabApi.escape(t.nome)}</option>`).join('');
+}
+
+async function carregarAtendimentos() {
+    try {
+        const atendimentos = AtendeLabApi.toList(await AtendeLabApi.get('atendimentos', 'listar'));
+        const tbody = document.getElementById('tabelaAtendimentos');
+
+        if (!atendimentos.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">Nenhum atendimento registrado.</td></tr>';
+            return;
         }
 
-        async function alterarStatus(id) {
-            const select = document.getElementById(`status-${id}`);
-            if (!select) return;
-            const response = await fetch('?controller=atendimentos&action=atualizar-status', {
-                method: 'POST',
-                body: new URLSearchParams({ id, status: select.value })
-            });
-            const data = await response.json();
-            mostrarMensagem('atendimento-msg', data.mensagem || data.erro, response.ok);
-            if (response.ok) carregarAtendimentos();
-        }
-    </script>
-</body>
-</html>
+        tbody.innerHTML = atendimentos.map(a => `
+            <tr>
+                <td>${AtendeLabApi.escape(a.id)}</td>
+                <td>${AtendeLabApi.escape(a.pessoa_nome)}</td>
+                <td>${AtendeLabApi.escape(a.tipo_nome)}</td>
+                <td>${AtendeLabApi.escape(a.usuario_nome)}</td>
+                <td>${AtendeLabApi.escape(a.data_atendimento)}</td>
+                <td><span class="badge ${classesStatus[a.status] || 'text-bg-primary'}">${AtendeLabApi.escape(a.status)}</span></td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary" onclick="abrirStatus(${Number(a.id)}, '${AtendeLabApi.escapeAttr(a.status)}')">Status</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        AtendeLabApi.showAlert('alerta', error.message, 'danger');
+    }
+}
+
+formAtendimento.addEventListener('submit', async event => {
+    event.preventDefault();
+    try {
+        await AtendeLabApi.post('atendimentos', 'criar', new FormData(formAtendimento));
+        AtendeLabApi.showAlert('alerta', 'Atendimento registrado com sucesso.');
+        fecharFormulario();
+        await carregarAtendimentos();
+    } catch (error) {
+        AtendeLabApi.showAlert('alerta', error.message, 'danger');
+    }
+});
+
+function abrirStatus(id, status) {
+    document.getElementById('statusId').value = id;
+    document.querySelector('#formStatus [name="status"]').value = status || 'em_andamento';
+    statusModal().show();
+}
+
+document.getElementById('formStatus').addEventListener('submit', async event => {
+    event.preventDefault();
+    try {
+        await AtendeLabApi.post('atendimentos', 'atualizarStatus', new FormData(event.target));
+        statusModal().hide();
+        AtendeLabApi.showAlert('alerta', 'Status atualizado com sucesso.');
+        await carregarAtendimentos();
+    } catch (error) {
+        AtendeLabApi.showAlert('alerta', error.message, 'danger');
+    }
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await carregarCombos();
+        await carregarAtendimentos();
+    } catch (error) {
+        AtendeLabApi.showAlert('alerta', error.message, 'danger');
+    }
+});
+</script>
+<?php require __DIR__ . '/../layouts/footer.php'; ?>

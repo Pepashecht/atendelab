@@ -130,24 +130,12 @@ class AuthController
 
     public function dashboard(): void
     {
-        $this->resumo();
-    }
-
-    public function resumo(): void
-    {
         // Bloqueia o acesso caso o usuário não esteja logado.
         exigirAutenticacao();
 
-        // Recupera os dados do usuário autenticado.
-        $usuario = usuarioAtual();
-
-        $resumo = [
-            'pessoas' => (int) $this->pdo->query('SELECT COUNT(*) FROM pessoas')->fetchColumn(),
-            'atendimentos' => (int) $this->pdo->query('SELECT COUNT(*) FROM atendimentos')->fetchColumn(),
-            'tipos' => (int) $this->pdo->query('SELECT COUNT(*) FROM tipos_atendimentos')->fetchColumn(),
-        ];
-
-        // Carrega a página interna.
+        // A view não calcula mais os totais aqui: ela é carregada vazia e
+        // o próprio JavaScript (api.js) busca os indicadores chamando
+        // controller=dashboard&action=resumo (DashboardController::resumo()).
         require __DIR__ . '/../Views/dashboard/index.php';
     }
 
